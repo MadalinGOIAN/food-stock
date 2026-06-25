@@ -4,12 +4,11 @@ CREATE DATABASE food_stock
     WITH
     OWNER = postgres
     ENCODING = 'UTF8'
-    LC_COLLATE = 'ro-RO'
-    LC_CTYPE = 'ro-RO'
-    LOCALE_PROVIDER = 'libc'
     TABLESPACE = pg_default
     CONNECTION LIMIT = -1
     IS_TEMPLATE = False;
+
+\c food_stock
 
 CREATE TYPE public.locations AS ENUM
     ('fridge', 'freezer', 'pantry');
@@ -20,7 +19,7 @@ CREATE TABLE IF NOT EXISTS public.roles
     name character varying(30) COLLATE pg_catalog."default" NOT NULL,
     CONSTRAINT roles_pk PRIMARY KEY (id),
     CONSTRAINT roles_name_unique UNIQUE (name)
-)
+);
 
 CREATE TABLE IF NOT EXISTS public.users
 (
@@ -33,7 +32,7 @@ CREATE TABLE IF NOT EXISTS public.users
     CONSTRAINT users_pk PRIMARY KEY (id),
     CONSTRAINT email_unique UNIQUE (email),
     CONSTRAINT username_unique UNIQUE (username)
-)
+);
 
 CREATE TABLE IF NOT EXISTS public.households
 (
@@ -42,7 +41,7 @@ CREATE TABLE IF NOT EXISTS public.households
     address text COLLATE pg_catalog."default" NOT NULL,
     created_at timestamp with time zone NOT NULL DEFAULT now(),
     CONSTRAINT households_pk PRIMARY KEY (id)
-)
+);
 
 CREATE TABLE IF NOT EXISTS public.users_households
 (
@@ -66,7 +65,7 @@ CREATE TABLE IF NOT EXISTS public.users_households
         ON UPDATE NO ACTION
         ON DELETE CASCADE
         NOT VALID
-)
+);
 
 CREATE TABLE IF NOT EXISTS public.product_types
 (
@@ -74,7 +73,20 @@ CREATE TABLE IF NOT EXISTS public.product_types
     name character varying(30) COLLATE pg_catalog."default" NOT NULL,
     CONSTRAINT product_types_pk PRIMARY KEY (id),
     CONSTRAINT product_type_name_unique UNIQUE (name)
-)
+);
+
+CREATE TABLE IF NOT EXISTS public.products
+(
+    id integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    name character varying(30) COLLATE pg_catalog."default" NOT NULL,
+    type_id integer NOT NULL,
+    CONSTRAINT products_pk PRIMARY KEY (id),
+    CONSTRAINT products_name_unique UNIQUE (name),
+    CONSTRAINT product_types_fk FOREIGN KEY (type_id)
+        REFERENCES public.product_types (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE RESTRICT
+);
 
 CREATE TABLE IF NOT EXISTS public.products_households
 (
@@ -94,7 +106,7 @@ CREATE TABLE IF NOT EXISTS public.products_households
         ON UPDATE NO ACTION
         ON DELETE CASCADE
         NOT VALID
-)
+);
 
 CREATE TABLE IF NOT EXISTS public.invites
 (
@@ -116,4 +128,4 @@ CREATE TABLE IF NOT EXISTS public.invites
         REFERENCES public.users (id) MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE CASCADE
-)
+);
