@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/MadalinGOIAN/food-stock/internal/db"
+	"github.com/MadalinGOIAN/food-stock/internal/api/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -34,6 +35,8 @@ func main() {
             "message": "hello",
         })
     })
+
+    auth.Routes(r.Group("/auth"))
 
 	if err := r.Run(port); err != nil {
 		log.Fatalf("Server failed: %v", err)
