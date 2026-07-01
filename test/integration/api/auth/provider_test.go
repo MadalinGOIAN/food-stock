@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"testing"
@@ -37,12 +38,15 @@ func setup(t *testing.T) (auth.Provider, string, string) {
 func signUp(t *testing.T, url, key, email, password string) {
 	t.Helper()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	body, err := json.Marshal(map[string]string{"email": email, "password": password})
 	if err != nil {
 		t.Fatalf("marshal signup body: %v", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url+"/auth/v1/signup", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url+"/auth/v1/signup", bytes.NewReader(body))
 	if err != nil {
 		t.Fatalf("build signup request: %v", err)
 	}
@@ -57,7 +61,8 @@ func signUp(t *testing.T, url, key, email, password string) {
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		t.Fatalf("signup returned %d, expected 200", res.StatusCode)
+		b, _ := io.ReadAll(res.Body)
+		t.Fatalf("signup returned %d, expected 200: %s", res.StatusCode, b)
 	}
 }
 
