@@ -14,47 +14,50 @@ import (
 )
 
 func main() {
-    if gin.IsDebugging() {
-        if err := godotenv.Load(); err != nil {
-            log.Fatal("Error loading .env file")
-        }
-    }
+	if gin.IsDebugging() {
+		if err := godotenv.Load(); err != nil {
+			log.Fatal("Error loading .env file")
+		}
+	}
 
-    supabaseUrl := os.Getenv("SUPABASE_URL")
-    jwksUrl := supabaseUrl + "/auth/v1/.well-known/jwks.json"
-    issuer := supabaseUrl + "/auth/v1"
+	supabaseUrl := os.Getenv("SUPABASE_URL")
+	jwksUrl := supabaseUrl + "/auth/v1/.well-known/jwks.json"
+	issuer := supabaseUrl + "/auth/v1"
 
-    requireAuth, err := middleware.RequireAuth(jwksUrl, issuer)
-    if err != nil {
-        log.Fatalf("Auth middleware init failed: %v", err)
-    }
+	requireAuth, err := middleware.RequireAuth(jwksUrl, issuer)
+	if err != nil {
+		log.Fatalf("Auth middleware init failed: %v", err)
+	}
 
-    ctx := context.Background()
-    pool, err := db.CreatePool(ctx)
-    if err != nil {
-        log.Fatalf("Database connection failed: %v", err)
-    }
-    defer pool.Close()
+	ctx := context.Background()
+	pool, err := db.CreatePool(ctx)
+	if err != nil {
+		log.Fatalf("Database connection failed: %v", err)
+	}
+	defer pool.Close()
 
 	r := gin.Default()
 
-    r.GET("/", requireAuth, func(c *gin.Context) {
-        userId, ok := middleware.UserId(c)
+	r.GET("/", requireAuth, func(c *gin.Context) {
+		userId, ok := middleware.UserId(c)
 
-        if !ok {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "missing user"})
-            return
-        }
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "missing user"})
+			return
+		}
 
-        c.JSON(http.StatusOK, gin.H{
-            "message": "hello",
-            "userId": userId,
-        })
-    })
+		c.JSON(http.StatusOK, gin.H{
+			"message": "hello",
+			"userId":  userId,
+		})
+	})
 
-    auth.Routes(r.Group("/auth"))
+	authProvider := auth.NewSupabaseProvider(supabaseUrl, os.Getenv("SUPABASE_ANON_KEY"))
+	authHandler := auth.NewHandler(authProvider, gin.Mode() == gin.ReleaseMode)
 
-    port := ":" + os.Getenv("PORT")
+	auth.Routes(r.Group("/auth"), authHandler)
+
+	port := ":" + os.Getenv("PORT")
 	if err := r.Run(port); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
