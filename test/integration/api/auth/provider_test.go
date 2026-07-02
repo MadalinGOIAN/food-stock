@@ -29,19 +29,28 @@ func setup(t *testing.T) (auth.Provider, string, string) {
 		t.Skip("env variables not set; skipping auth integration tests")
 	}
 
-	email := fmt.Sprintf("test-%d@example.com", time.Now().UnixNano())
-	signUp(t, url, key, email, password)
+	timestamp := time.Now().UnixNano()
+	email := fmt.Sprintf("test-%d@example.com", timestamp)
+	username := fmt.Sprintf("test-%d", timestamp)
+	signUp(t, url, key, email, username, password)
 
 	return auth.NewSupabaseProvider(url, key), email, password
 }
 
-func signUp(t *testing.T, url, key, email, password string) {
+func signUp(t *testing.T, url, key, email, username, password string) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	body, err := json.Marshal(map[string]string{"email": email, "password": password})
+	body, err := json.Marshal(map[string]any{
+		"email":    email,
+		"password": password,
+		"data": map[string]string{
+			"username": username,
+			"name":     "Test User",
+		},
+	})
 	if err != nil {
 		t.Fatalf("marshal signup body: %v", err)
 	}
