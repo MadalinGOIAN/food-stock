@@ -1,15 +1,3 @@
--- DROP DATABASE IF EXISTS food_stock;
-
-CREATE DATABASE food_stock
-    WITH
-    OWNER = postgres
-    ENCODING = 'UTF8'
-    TABLESPACE = pg_default
-    CONNECTION LIMIT = -1
-    IS_TEMPLATE = False;
-
-\c food_stock
-
 CREATE TYPE public.locations AS ENUM
     ('fridge', 'freezer', 'pantry');
 
