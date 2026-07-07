@@ -4,19 +4,45 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/MadalinGOIAN/food-stock/internal/middleware"
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
 	provider Provider
+	storage  Storage
 	isSecure bool
 }
 
-func NewHandler(provider Provider, isSecure bool) *Handler {
+func NewHandler(provider Provider, storage Storage, isSecure bool) *Handler {
 	return &Handler{
 		provider: provider,
+		storage:  storage,
 		isSecure: isSecure,
 	}
+}
+
+func (h *Handler) Signup(c *gin.Context) {
+	var signup Signup
+	if err := c.ShouldBindJSON(&signup); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	if err := h.provider.Signup(c.Request.Context(), signup); err != nil {
+		switch {
+		case errors.Is(err, ErrConflict):
+			c.JSON(http.StatusConflict, gin.H{"error": "email or username already registered"})
+		case errors.Is(err, ErrInvalid):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid registration details"})
+		default:
+			writeProviderError(c, err)
+		}
+
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "registered successfully"})
 }
 
 func (h *Handler) Login(c *gin.Context) {
@@ -34,6 +60,16 @@ func (h *Handler) Login(c *gin.Context) {
 		}
 
 		writeProviderError(c, err)
+		return
+	}
+
+	isActive, err := h.storage.IsActive(c.Request.Context(), token.User.Id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "auth request failed"})
+		return
+	}
+	if !isActive {
+		c.JSON(http.StatusForbidden, gin.H{"error": "account has been deleted"})
 		return
 	}
 
@@ -60,6 +96,17 @@ func (h *Handler) Refresh(c *gin.Context) {
 		return
 	}
 
+	isActive, err := h.storage.IsActive(c.Request.Context(), token.User.Id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "auth request failed"})
+		return
+	}
+	if !isActive {
+		h.clearAuthCookies(c)
+		c.JSON(http.StatusForbidden, gin.H{"error": "account has been deleted"})
+		return
+	}
+
 	h.setAuthCookies(c, token.AccessToken, token.RefreshToken, token.ExpiresIn)
 	c.JSON(http.StatusOK, gin.H{"message": "session refreshed successfully"})
 }
@@ -71,6 +118,51 @@ func (h *Handler) Logout(c *gin.Context) {
 
 	h.clearAuthCookies(c)
 	c.JSON(http.StatusOK, gin.H{"message": "logged out successfully"})
+}
+
+func (h *Handler) DeleteAccount(c *gin.Context) {
+	userId, ok := middleware.UserId(c)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "missing user"})
+		return
+	}
+
+	email, ok := middleware.UserEmail(c)
+	if !ok || email == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "missing user email"})
+		return
+	}
+
+	var accDeletion AccountDeletion
+	if err := c.ShouldBindJSON(&accDeletion); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	if _, err := h.provider.Login(
+		c.Request.Context(),
+		Login{Email: email, Password: accDeletion.Password},
+	); err != nil {
+		if errors.Is(err, ErrUnauthorized) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid password"})
+			return
+		}
+
+		writeProviderError(c, err)
+		return
+	}
+
+	if err := h.storage.Deactivate(c.Request.Context(), userId); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not delete account"})
+		return
+	}
+
+	if accessToken, err := c.Cookie("access_token"); err == nil && accessToken != "" {
+		_ = h.provider.Logout(c.Request.Context(), accessToken)
+	}
+
+	h.clearAuthCookies(c)
+	c.JSON(http.StatusOK, gin.H{"message": "account deleted successfully"})
 }
 
 func (h *Handler) setAuthCookies(

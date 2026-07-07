@@ -53,9 +53,10 @@ func main() {
 	})
 
 	authProvider := auth.NewSupabaseProvider(supabaseUrl, os.Getenv("SUPABASE_ANON_KEY"))
-	authHandler := auth.NewHandler(authProvider, gin.Mode() == gin.ReleaseMode)
+	authStorage := auth.NewPostgresStorage(pool)
+	authHandler := auth.NewHandler(authProvider, authStorage, gin.Mode() == gin.ReleaseMode)
 
-	auth.Routes(r.Group("/auth"), authHandler)
+	auth.Routes(r.Group("/auth"), authHandler, requireAuth)
 
 	port := ":" + os.Getenv("PORT")
 	if err := r.Run(port); err != nil {

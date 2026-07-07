@@ -8,7 +8,10 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-const ContextUserId = "userId"
+const (
+	ContextUserId    = "userId"
+	ContextUserEmail = "userEmail"
+)
 
 func RequireAuth(jwksUrl, issuer string) (gin.HandlerFunc, error) {
 	k, err := keyfunc.NewDefault([]string{jwksUrl})
@@ -42,7 +45,11 @@ func RequireAuth(jwksUrl, issuer string) (gin.HandlerFunc, error) {
 			return
 		}
 
+		claims, _ := token.Claims.(jwt.MapClaims)
+		email, _ := claims["email"].(string)
+
 		c.Set(ContextUserId, subject)
+		c.Set(ContextUserEmail, email)
 		c.Next()
 	}, nil
 }
@@ -55,4 +62,14 @@ func UserId(c *gin.Context) (string, bool) {
 
 	id, ok := v.(string)
 	return id, ok
+}
+
+func UserEmail(c *gin.Context) (string, bool) {
+	v, ok := c.Get(ContextUserEmail)
+	if !ok {
+		return "", false
+	}
+
+	email, ok := v.(string)
+	return email, ok
 }
