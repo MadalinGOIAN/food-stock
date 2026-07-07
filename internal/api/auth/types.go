@@ -8,6 +8,7 @@ var (
 	ErrUnauthorized = errors.New("auth: unauthorized")
 	ErrUnreachable  = errors.New("auth: provider unreachable")
 	ErrBadResponse  = errors.New("auth: bad provider response")
+	ErrRateLimited  = errors.New("auth: rate limited")
 )
 
 type Signup struct {
