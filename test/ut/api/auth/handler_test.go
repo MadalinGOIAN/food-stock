@@ -23,7 +23,7 @@ const (
 	refreshTokenValue = "refresh"
 	expiresIn         = 3600
 
-	validSignupReqBody        = `{"email":"user@example.com","password":"password","username":"user","name":"User"}`
+	validSignupReqBody        = `{"email":"user@example.com","password":"password","name":"User"}`
 	validLoginReqBody         = `{"email":"user@example.com","password":"password"}`
 	validDeleteAccountReqBody = `{"password":"password"}`
 	invalidReqBody            = `{"email":"user@example.com"}`
@@ -31,7 +31,6 @@ const (
 
 	emailValue    = "user@example.com"
 	passwordValue = "password"
-	usernameValue = "user"
 	nameValue     = "User"
 )
 
@@ -197,9 +196,7 @@ func TestSignup_Success(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("expected 201, received %d (%s)", w.Code, w.Body.String())
 	}
-	if p.receivedSignup.Email != emailValue ||
-		p.receivedSignup.Username != usernameValue ||
-		p.receivedSignup.Name != nameValue {
+	if p.receivedSignup.Email != emailValue || p.receivedSignup.Name != nameValue {
 		t.Fatalf("provider received wrong registration: %+v", p.receivedSignup)
 	}
 }
@@ -226,7 +223,7 @@ func TestSignup_Conflict(t *testing.T) {
 	if w.Code != http.StatusConflict {
 		t.Fatalf("expected 409, received %d", w.Code)
 	}
-	assertErrorMessage(t, w, "email or username already registered")
+	assertErrorMessage(t, w, "email already registered")
 }
 
 func TestLogin_Success(t *testing.T) {
