@@ -183,10 +183,12 @@ func (h *Handler) clearAuthCookies(c *gin.Context) {
 }
 
 func writeProviderError(c *gin.Context, err error) {
-	if errors.Is(err, ErrUnreachable) {
+	switch {
+	case errors.Is(err, ErrRateLimited):
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "server too busy; try again later"})
+	case errors.Is(err, ErrUnreachable):
 		c.JSON(http.StatusBadGateway, gin.H{"error": "auth service unreachable"})
-		return
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "auth request failed"})
 	}
-
-	c.JSON(http.StatusInternalServerError, gin.H{"error": "auth request failed"})
 }
