@@ -122,6 +122,9 @@ func (s *SupabaseProvider) requestToken(
 	}
 	defer res.Body.Close()
 
+	if res.StatusCode == http.StatusTooManyRequests {
+		return nil, ErrRateLimited
+	}
 	if res.StatusCode != http.StatusOK {
 		return nil, ErrUnauthorized
 	}
@@ -145,6 +148,9 @@ func mapSignupError(res *http.Response) error {
 	case res.StatusCode == http.StatusConflict,
 		errFromProvider.ErrorCode == "user_already_exists":
 		return ErrConflict
+
+	case res.StatusCode == http.StatusTooManyRequests:
+		return ErrRateLimited
 
 	case errFromProvider.ErrorCode == "weak_password",
 		res.StatusCode == http.StatusUnprocessableEntity,

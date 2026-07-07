@@ -226,6 +226,17 @@ func TestSignup_Conflict(t *testing.T) {
 	assertErrorMessage(t, w, "email already registered")
 }
 
+func TestSignup_RateLimited(t *testing.T) {
+	r := newRouter(&stubProvider{signupErr: auth.ErrRateLimited})
+
+	w := do(r, http.MethodPost, "/auth/signup", validSignupReqBody)
+
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429, received %d", w.Code)
+	}
+	assertErrorMessage(t, w, "server too busy; try again later")
+}
+
 func TestLogin_Success(t *testing.T) {
 	p := &stubProvider{loginToken: &auth.Token{
 		AccessToken:  accessTokenValue,
@@ -341,6 +352,7 @@ func TestLogin_ProviderErrors(t *testing.T) {
 		{"unauthorized", auth.ErrUnauthorized, http.StatusUnauthorized, "invalid email or password"},
 		{"unreachable", auth.ErrUnreachable, http.StatusBadGateway, "auth service unreachable"},
 		{"bad response", auth.ErrBadResponse, http.StatusInternalServerError, "auth request failed"},
+		{"rate limited", auth.ErrRateLimited, http.StatusTooManyRequests, "server too busy; try again later"},
 	}
 
 	for _, tc := range cases {
@@ -546,5 +558,27 @@ func TestDeleteAccount_DeactivateError(t *testing.T) {
 	assertErrorMessage(t, w, "could not delete account")
 	if p.logoutCalled {
 		t.Fatal("session must not be revoked when deactivate failed")
+	}
+}
+
+func TestDeleteAccount_RateLimited(t *testing.T) {
+	p := &stubProvider{loginErr: auth.ErrRateLimited}
+	s := &stubStorage{active: true}
+	r := newRouterWithStorage(p, s)
+
+	w := do(
+		r,
+		http.MethodDelete,
+		"/auth/account",
+		validDeleteAccountReqBody,
+		&http.Cookie{Name: "access_token", Value: accessTokenValue},
+	)
+
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429, received %d", w.Code)
+	}
+	assertErrorMessage(t, w, "server too busy; try again later")
+	if s.deactivated {
+		t.Fatal("account must not be deactivated when re-auth is rate limited")
 	}
 }
