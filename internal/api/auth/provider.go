@@ -34,7 +34,7 @@ func (s *SupabaseProvider) Signup(ctx context.Context, signup Signup) error {
 		"email":    signup.Email,
 		"password": signup.Password,
 		"data": map[string]string{
-			"name":     signup.Name,
+			"name": signup.Name,
 		},
 	}
 

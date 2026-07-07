@@ -46,7 +46,7 @@ func signUp(t *testing.T, url, key, email, password string) {
 		"email":    email,
 		"password": password,
 		"data": map[string]string{
-			"name":     "Test User",
+			"name": "Test User",
 		},
 	})
 	if err != nil {
