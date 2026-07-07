@@ -9,6 +9,7 @@ import (
 )
 
 type Provider interface {
+	Signup(ctx context.Context, signup Signup) error
 	Login(ctx context.Context, login Login) (*Token, error)
 	Refresh(ctx context.Context, refreshToken string) (*Token, error)
 	Logout(ctx context.Context, accessToken string) error
@@ -26,6 +27,42 @@ func NewSupabaseProvider(url, key string) *SupabaseProvider {
 		key:    key,
 		client: &http.Client{Timeout: 10 * time.Second},
 	}
+}
+
+func (s *SupabaseProvider) Signup(ctx context.Context, signup Signup) error {
+	payload := map[string]any{
+		"email":    signup.Email,
+		"password": signup.Password,
+		"data": map[string]string{
+			"username": signup.Username,
+			"name":     signup.Name,
+		},
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.url+"/auth/v1/signup", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("apikey", s.key)
+
+	res, err := s.client.Do(req)
+	if err != nil {
+		return ErrUnreachable
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return mapSignupError(res)
+	}
+
+	return nil
 }
 
 func (s *SupabaseProvider) Login(ctx context.Context, login Login) (*Token, error) {
@@ -62,7 +99,11 @@ func (s *SupabaseProvider) Logout(ctx context.Context, accessToken string) error
 	return nil
 }
 
-func (s *SupabaseProvider) requestToken(ctx context.Context, path string, payload any) (*Token, error) {
+func (s *SupabaseProvider) requestToken(
+	ctx context.Context,
+	path string,
+	payload any,
+) (*Token, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
@@ -92,4 +133,27 @@ func (s *SupabaseProvider) requestToken(ctx context.Context, path string, payloa
 	}
 
 	return &token, nil
+}
+
+func mapSignupError(res *http.Response) error {
+	var errFromProvider struct {
+		ErrorCode string `json:"error_code"`
+		Msg       string `json:"msg"`
+	}
+	_ = json.NewDecoder(res.Body).Decode(&errFromProvider)
+
+	switch {
+	case res.StatusCode == http.StatusConflict,
+		errFromProvider.ErrorCode == "user_already_exists":
+		return ErrConflict
+
+	case errFromProvider.ErrorCode == "weak_password",
+		res.StatusCode == http.StatusUnprocessableEntity,
+		res.StatusCode == http.StatusBadRequest:
+		return ErrInvalid
+
+	default:
+		return ErrBadResponse
+	}
+
 }

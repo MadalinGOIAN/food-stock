@@ -4,6 +4,7 @@ ALTER TABLE public.users DROP COLUMN email;
 ALTER TABLE public.users ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE public.users
     ADD CONSTRAINT users_auth_fk FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public.users ADD COLUMN is_active boolean NOT NULL DEFAULT true;
 
 CREATE FUNCTION public.handle_new_user()
 RETURNS trigger

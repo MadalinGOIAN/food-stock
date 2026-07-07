@@ -82,6 +82,42 @@ func testContext(t *testing.T) context.Context {
 	return ctx
 }
 
+func TestProvider_Signup_Success(t *testing.T) {
+	url := os.Getenv("SUPABASE_URL")
+	key := os.Getenv("SUPABASE_ANON_KEY")
+	if url == "" || key == "" {
+		t.Skip("env variables not set; skipping auth integration tests")
+	}
+
+	provider := auth.NewSupabaseProvider(url, key)
+	ts := time.Now().UnixNano()
+	signup := auth.Signup{
+		Email:    fmt.Sprintf("new-%d@example.com", ts),
+		Password: password,
+		Username: fmt.Sprintf("new-%d", ts),
+		Name:     "Signup User",
+	}
+
+	if err := provider.Signup(testContext(t), signup); err != nil {
+		t.Fatalf("expected successful registration, received error: %v", err)
+	}
+}
+
+func TestProvider_Signup_Duplicate(t *testing.T) {
+	provider, email, _ := setup(t)
+
+	signup := auth.Signup{
+		Email:    email,
+		Password: password,
+		Username: fmt.Sprintf("duplicate-%d", time.Now().UnixNano()),
+		Name:     "Duplicate User",
+	}
+
+	if err := provider.Signup(testContext(t), signup); !errors.Is(err, auth.ErrConflict) {
+		t.Fatalf("expected ErrConflict, received %v", err)
+	}
+}
+
 func TestProvider_Login_Success(t *testing.T) {
 	provider, email, password := setup(t)
 
