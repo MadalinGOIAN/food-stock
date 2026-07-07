@@ -32,7 +32,7 @@ func (h *Handler) Signup(c *gin.Context) {
 	if err := h.provider.Signup(c.Request.Context(), signup); err != nil {
 		switch {
 		case errors.Is(err, ErrConflict):
-			c.JSON(http.StatusConflict, gin.H{"error": "email or username already registered"})
+			c.JSON(http.StatusConflict, gin.H{"error": "email already registered"})
 		case errors.Is(err, ErrInvalid):
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid registration details"})
 		default:

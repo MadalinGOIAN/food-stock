@@ -31,13 +31,12 @@ func setup(t *testing.T) (auth.Provider, string, string) {
 
 	timestamp := time.Now().UnixNano()
 	email := fmt.Sprintf("test-%d@example.com", timestamp)
-	username := fmt.Sprintf("test-%d", timestamp)
-	signUp(t, url, key, email, username, password)
+	signUp(t, url, key, email, password)
 
 	return auth.NewSupabaseProvider(url, key), email, password
 }
 
-func signUp(t *testing.T, url, key, email, username, password string) {
+func signUp(t *testing.T, url, key, email, password string) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -47,8 +46,7 @@ func signUp(t *testing.T, url, key, email, username, password string) {
 		"email":    email,
 		"password": password,
 		"data": map[string]string{
-			"username": username,
-			"name":     "Test User",
+			"name": "Test User",
 		},
 	})
 	if err != nil {
@@ -94,7 +92,6 @@ func TestProvider_Signup_Success(t *testing.T) {
 	signup := auth.Signup{
 		Email:    fmt.Sprintf("new-%d@example.com", ts),
 		Password: password,
-		Username: fmt.Sprintf("new-%d", ts),
 		Name:     "Signup User",
 	}
 
@@ -109,7 +106,6 @@ func TestProvider_Signup_Duplicate(t *testing.T) {
 	signup := auth.Signup{
 		Email:    email,
 		Password: password,
-		Username: fmt.Sprintf("duplicate-%d", time.Now().UnixNano()),
 		Name:     "Duplicate User",
 	}
 
