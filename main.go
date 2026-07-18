@@ -9,6 +9,7 @@ import (
 	"github.com/MadalinGOIAN/food-stock/internal/api/auth"
 	"github.com/MadalinGOIAN/food-stock/internal/db"
 	"github.com/MadalinGOIAN/food-stock/internal/middleware"
+	"github.com/MadalinGOIAN/food-stock/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -20,13 +21,9 @@ func main() {
 		}
 	}
 
-	supabaseUrl := os.Getenv("SUPABASE_URL")
-	jwksUrl := supabaseUrl + "/auth/v1/.well-known/jwks.json"
-	issuer := supabaseUrl + "/auth/v1"
-
-	requireAuth, err := middleware.RequireAuth(jwksUrl, issuer)
+	allowedOrigins, err := utils.ParseOrigins(os.Getenv("CORS_ALLOWED_ORIGINS"))
 	if err != nil {
-		log.Fatalf("Auth middleware init failed: %v", err)
+		log.Fatalf("CORS_ALLOWED_ORIGINS parsing failed: %v", err)
 	}
 
 	ctx := context.Background()
@@ -36,7 +33,17 @@ func main() {
 	}
 	defer pool.Close()
 
+	supabaseUrl := os.Getenv("SUPABASE_URL")
+	jwksUrl := supabaseUrl + "/auth/v1/.well-known/jwks.json"
+	issuer := supabaseUrl + "/auth/v1"
+
+	requireAuth, err := middleware.RequireAuth(jwksUrl, issuer)
+	if err != nil {
+		log.Fatalf("Auth middleware init failed: %v", err)
+	}
+
 	r := gin.Default()
+	r.Use(middleware.Cors(allowedOrigins))
 
 	r.GET("/", requireAuth, func(c *gin.Context) {
 		userId, ok := middleware.UserId(c)
