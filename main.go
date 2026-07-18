@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/MadalinGOIAN/food-stock/internal/api/auth"
 	"github.com/MadalinGOIAN/food-stock/internal/db"
