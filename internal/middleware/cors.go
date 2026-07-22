@@ -12,6 +12,7 @@ const nrOfHours = 12
 func Cors(allowedOrigins []string) gin.HandlerFunc {
 	return cors.New(cors.Config{
 		AllowOrigins:     allowedOrigins,
+		AllowWildcard:    true,
 		AllowMethods:     []string{"GET", "POST", "DELETE"},
 		AllowHeaders:     []string{"Content-Type"},
 		AllowCredentials: true,

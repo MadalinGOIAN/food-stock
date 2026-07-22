@@ -29,19 +29,19 @@ func RequireAuth(jwksUrl, issuer string) (gin.HandlerFunc, error) {
 	return func(c *gin.Context) {
 		rawToken, err := c.Cookie("access_token")
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing access token"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Missing access token"})
 			return
 		}
 
 		token, err := jwt.Parse(rawToken, k.Keyfunc, parserOptions...)
 		if err != nil || !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			return
 		}
 
 		subject, err := token.Claims.GetSubject()
 		if err != nil || subject == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid subject"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid subject"})
 			return
 		}
 

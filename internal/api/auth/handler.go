@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/MadalinGOIAN/food-stock/internal/middleware"
@@ -9,32 +10,41 @@ import (
 )
 
 type Handler struct {
-	provider Provider
-	storage  Storage
-	isSecure bool
+	provider  Provider
+	storage   Storage
+	isSecure  bool
+	crossSite bool
 }
 
-func NewHandler(provider Provider, storage Storage, isSecure bool) *Handler {
+func NewHandler(provider Provider, storage Storage, isSecure, crossSite bool) *Handler {
 	return &Handler{
-		provider: provider,
-		storage:  storage,
-		isSecure: isSecure,
+		provider:  provider,
+		storage:   storage,
+		isSecure:  isSecure,
+		crossSite: crossSite,
 	}
+}
+
+func (h *Handler) sameSite() http.SameSite {
+	if h.crossSite && h.isSecure {
+		return http.SameSiteNoneMode
+	}
+	return http.SameSiteLaxMode
 }
 
 func (h *Handler) Signup(c *gin.Context) {
 	var signup Signup
 	if err := c.ShouldBindJSON(&signup); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
 
 	if err := h.provider.Signup(c.Request.Context(), signup); err != nil {
 		switch {
 		case errors.Is(err, ErrConflict):
-			c.JSON(http.StatusConflict, gin.H{"error": "email already registered"})
+			c.JSON(http.StatusConflict, gin.H{"error": "Email already registered"})
 		case errors.Is(err, ErrInvalid):
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid registration details"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid registration details"})
 		default:
 			writeProviderError(c, err)
 		}
@@ -42,7 +52,7 @@ func (h *Handler) Signup(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "registered successfully"})
+	c.JSON(http.StatusCreated, gin.H{"message": "Registered successfully"})
 }
 
 func (h *Handler) Login(c *gin.Context) {
@@ -55,7 +65,7 @@ func (h *Handler) Login(c *gin.Context) {
 	token, err := h.provider.Login(c.Request.Context(), login)
 	if err != nil {
 		if errors.Is(err, ErrUnauthorized) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
 			return
 		}
 
@@ -65,16 +75,16 @@ func (h *Handler) Login(c *gin.Context) {
 
 	isActive, err := h.storage.IsActive(c.Request.Context(), token.User.Id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "auth request failed"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Auth request failed"})
 		return
 	}
 	if !isActive {
-		c.JSON(http.StatusForbidden, gin.H{"error": "account has been deleted"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Account has been deleted"})
 		return
 	}
 
 	h.setAuthCookies(c, token.AccessToken, token.RefreshToken, token.ExpiresIn)
-	c.JSON(http.StatusOK, gin.H{"message": "logged in successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Logged in successfully"})
 }
 
 func (h *Handler) Refresh(c *gin.Context) {
@@ -113,7 +123,9 @@ func (h *Handler) Refresh(c *gin.Context) {
 
 func (h *Handler) Logout(c *gin.Context) {
 	if accessToken, err := c.Cookie("access_token"); err == nil && accessToken != "" {
-		_ = h.provider.Logout(c.Request.Context(), accessToken)
+		if err := h.provider.Logout(c.Request.Context(), accessToken); err != nil {
+			slog.WarnContext(c.Request.Context(), "Provider logout failed", "error", err)
+		}
 	}
 
 	h.clearAuthCookies(c)
@@ -171,13 +183,15 @@ func (h *Handler) setAuthCookies(
 	refreshToken string,
 	accessTokenMaxAge int,
 ) {
-	c.SetSameSite(http.SameSiteLaxMode)
+	const refreshTokenMaxAge = 60 * 60 * 24 * 30
+
+	c.SetSameSite(h.sameSite())
 	c.SetCookie("access_token", accessToken, accessTokenMaxAge, "/", "", h.isSecure, true)
-	c.SetCookie("refresh_token", refreshToken, 60*60*24*30, "/", "", h.isSecure, true)
+	c.SetCookie("refresh_token", refreshToken, refreshTokenMaxAge, "/", "", h.isSecure, true)
 }
 
 func (h *Handler) clearAuthCookies(c *gin.Context) {
-	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetSameSite(h.sameSite())
 	c.SetCookie("access_token", "", -1, "/", "", h.isSecure, true)
 	c.SetCookie("refresh_token", "", -1, "/", "", h.isSecure, true)
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 )
@@ -93,7 +94,11 @@ func (s *SupabaseProvider) Logout(ctx context.Context, accessToken string) error
 	if err != nil {
 		return ErrUnreachable
 	}
-	res.Body.Close()
+	defer res.Body.Close()
+
+	if res.StatusCode >= 300 {
+		return fmt.Errorf("logout failed: status %d", res.StatusCode)
+	}
 
 	return nil
 }
