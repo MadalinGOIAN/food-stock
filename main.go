@@ -61,7 +61,13 @@ func main() {
 
 	authProvider := auth.NewSupabaseProvider(supabaseUrl, os.Getenv("SUPABASE_ANON_KEY"))
 	authStorage := auth.NewPostgresStorage(pool)
-	authHandler := auth.NewHandler(authProvider, authStorage, gin.Mode() == gin.ReleaseMode)
+	crossSiteCookies := os.Getenv("CROSS_SITE_COOKIES") == "true"
+	authHandler := auth.NewHandler(
+		authProvider,
+		authStorage,
+		gin.Mode() == gin.ReleaseMode,
+		crossSiteCookies,
+	)
 
 	auth.Routes(r.Group("/auth"), authHandler, requireAuth)
 
