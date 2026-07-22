@@ -103,7 +103,7 @@ func stubAuthMiddleware() gin.HandlerFunc {
 func newEngine(p auth.Provider, s auth.Storage, secure bool) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	h := auth.NewHandler(p, s, secure)
+	h := auth.NewHandler(p, s, secure, false)
 	auth.Routes(r.Group("/auth"), h, stubAuthMiddleware())
 	return r
 }
@@ -223,7 +223,7 @@ func TestSignup_Conflict(t *testing.T) {
 	if w.Code != http.StatusConflict {
 		t.Fatalf("expected 409, received %d", w.Code)
 	}
-	assertErrorMessage(t, w, "email already registered")
+	assertErrorMessage(t, w, "Email already registered")
 }
 
 func TestSignup_RateLimited(t *testing.T) {
@@ -300,7 +300,7 @@ func TestLogin_StorageError(t *testing.T) {
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, received %d (%s)", w.Code, w.Body.String())
 	}
-	assertErrorMessage(t, w, "auth request failed")
+	assertErrorMessage(t, w, "Auth request failed")
 	if c := findCookie(w, "access_token"); c != nil {
 		t.Fatalf("no cookie expected on storage error, received %+v", c)
 	}
@@ -335,7 +335,7 @@ func TestLogin_InactiveAccount(t *testing.T) {
 		t.Fatalf("expected 403, received %d (%s)", w.Code, w.Body.String())
 	}
 
-	assertErrorMessage(t, w, "account has been deleted")
+	assertErrorMessage(t, w, "Account has been deleted")
 
 	if c := findCookie(w, "access_token"); c != nil {
 		t.Fatalf("no access_token cookie expected for inactive account, received %+v", c)
@@ -349,7 +349,7 @@ func TestLogin_ProviderErrors(t *testing.T) {
 		expectedCode   int
 		expectedErrMsg string
 	}{
-		{"unauthorized", auth.ErrUnauthorized, http.StatusUnauthorized, "invalid email or password"},
+		{"unauthorized", auth.ErrUnauthorized, http.StatusUnauthorized, "Invalid email or password"},
 		{"unreachable", auth.ErrUnreachable, http.StatusBadGateway, "auth service unreachable"},
 		{"bad response", auth.ErrBadResponse, http.StatusInternalServerError, "auth request failed"},
 		{"rate limited", auth.ErrRateLimited, http.StatusTooManyRequests, "server too busy; try again later"},
